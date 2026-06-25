@@ -196,3 +196,4 @@ curl -b /tmp/vw-cookies.txt https://warden.example.com/admin/users
 - **Web vault 404**: Verify `WEB_VAULT_FOLDER` points to a directory containing `index.html`.
 - **config.json overrides env**: Vaultwarden persists config to `config.json` on first run. After that, all settings in `config.json` take precedence over env vars. Edit `config.json` or use admin panel for those settings. For private instances, set `signups_allowed` to `false` after first run.
 - **dotenv not found**: Install via `webi dotenv` on the remote host.
+- **Proxy 4xx kills sessions**: If the server returns 4xx (at least 401/403) on sync, Vaultwarden clients will log out the user. Configure your TLS router/proxy to return 502 or timeout when the Vaultwarden service is unavailable — never 401/403.

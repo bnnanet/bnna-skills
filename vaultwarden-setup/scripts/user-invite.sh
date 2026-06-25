@@ -1,5 +1,6 @@
 #!/bin/sh
-set -eu
+set -e
+set -u
 
 # Usage: user-invite.sh <name> <email> <master_password_hash>
 #
@@ -13,41 +14,52 @@ set -eu
 #   VAULTWARDEN_URL    — base URL, e.g. https://warden.example.com
 #   VAULTWARDEN_ADMIN_TOKEN — admin token (loaded from .env or exported)
 
-if [ $# -ne 3 ]; then
-  echo "Usage: $0 <name> <email> <master_password_hash>"
-  exit 1
-fi
+fn_usage() {
+   echo "Usage: $(basename "$0") <name> <email> <master_password_hash>"
+}
 
-# Load .env if present
-if [ -f "$(dirname "$0")/.env" ]; then
-  . "$(dirname "$0")/.env"
-fi
+fn_main() {
+   g_name="${1:-}"
+   g_email="${2:-}"
+   g_hash="${3:-}"
 
-if [ -z "${VAULTWARDEN_URL:-}" ]; then
-  echo "Error: VAULTWARDEN_URL not set"
-  echo "  Set it in .env or export it"
-  exit 1
-fi
+   if test -z "${g_name}" || test -z "${g_email}" || test -z "${g_hash}"; then
+      fn_usage >&2
+      exit 1
+   fi
 
-NAME="$1"
-EMAIL="$2"
-HASH="$3"
+   # Load .env if present
+   b_script_dir="$(cd "$(dirname "$0")" && pwd)"
+   if test -f "${b_script_dir}/.env"; then
+      . "${b_script_dir}/.env"
+   fi
 
-if [ -z "${VAULTWARDEN_ADMIN_TOKEN:-}" ]; then
-  echo "Error: VAULTWARDEN_ADMIN_TOKEN not set"
-  echo "  Set it in .env or export it"
-  exit 1
-fi
+   if test -z "${VAULTWARDEN_URL:-}"; then
+      echo "Error: VAULTWARDEN_URL not set" >&2
+      echo "  Set it in .env or export it" >&2
+      exit 1
+   fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COOKIE_FILE=$(mktemp)
-trap 'rm -f "$COOKIE_FILE"' EXIT
+   if test -z "${VAULTWARDEN_ADMIN_TOKEN:-}"; then
+      echo "Error: VAULTWARDEN_ADMIN_TOKEN not set" >&2
+      echo "  Set it in .env or export it" >&2
+      exit 1
+   fi
 
-# Step 1: Login to get session cookie
-curl -s -c "$COOKIE_FILE" -X POST "$VAULTWARDEN_URL/admin" \
-  -d "token=$VAULTWARDEN_ADMIN_TOKEN&redirect=/admin/users" > /dev/null
+   export VAULTWARDEN_URL
+   export VAULTWARDEN_ADMIN_TOKEN
 
-# Step 2: Create user via invite endpoint
-curl -s -b "$COOKIE_FILE" -X POST "$VAULTWARDEN_URL/admin/invite" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"name\":\"$NAME\",\"masterPasswordHash\":\"$HASH\"}"
+   b_cookie_file="$(mktemp)"
+   trap 'rm -f "${b_cookie_file}"' EXIT
+
+   # Step 1: Login to get session cookie
+   curl -s -c "${b_cookie_file}" -X POST "${VAULTWARDEN_URL}/admin" \
+      -d "token=${VAULTWARDEN_ADMIN_TOKEN}&redirect=/admin/users" > /dev/null
+
+   # Step 2: Create user via invite endpoint
+   curl -s -b "${b_cookie_file}" -X POST "${VAULTWARDEN_URL}/admin/invite" \
+      -H 'Content-Type: application/json' \
+      -d "{\"email\":\"${g_email}\",\"name\":\"${g_name}\",\"masterPasswordHash\":\"${g_hash}\"}"
+}
+
+fn_main "${@:-}"
