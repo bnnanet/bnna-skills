@@ -54,14 +54,14 @@ dns-cname
 dns-cname memos.example.com tls-10-11-99-21.vms.example.net
 
 # Wait for DNS propagation
-sleep 15
+sleep 30
 ```
 
 This creates a new LXC container on the configured Proxmox node, sets the DNS CNAME record pointing `memos.example.com` to the TLS router's direct IP domain, and waits for propagation.
 
 **Note:** The container may be created in `stopped` state while still booting. Wait a few seconds before proceeding to provision.
 
-**Note:** DNS CNAME propagation can take a few minutes. The service is accessible via the direct IP (`tls-10-11-99-21.vms.example.net`) immediately, even before the CNAME propagates.
+**Note:** DNS CNAME propagation can take a few minutes. The service is accessible via the direct IP (`tls-10-11-99-21.vms.example.net`) immediately, even before the CNAME propagates. If the CNAME isn't resolving yet, use the direct IP to SSH or access the service.
 
 ### 2. Provision the host
 
