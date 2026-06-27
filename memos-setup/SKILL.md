@@ -8,6 +8,16 @@ depends: []
 
 Memos deployed as a systemd service behind a TLS router.
 
+| File | Purpose |
+|------|---------|
+| [scripts/provision.sh](scripts/provision.sh) | Fresh Ubuntu host setup (dist-upgrade, packages, locale, timezone, ssh hardening, app user) |
+| [scripts/setup-app.sh](scripts/setup-app.sh) | Generic app scaffolding (serviceman install, PATH, directories) |
+| [scripts/deploy.sh](scripts/deploy.sh) | Download, install, serviceman register for Memos |
+| [scripts/download.sh](scripts/download.sh) | Standalone binary download utility |
+| [references/deploy-checklist.md](references/deploy-checklist.md) | Pre-flight, deploy, and post-deploy checklist |
+
+## Deploy Steps
+
 | Role | Path |
 |------|------|
 | Binary | `~/bin/memos` |
@@ -120,7 +130,7 @@ ssh app@memos.example.com '. ~/.config/envman/PATH.env && serviceman start memos
 
 Verify locally first, then externally:
 
-### Internal checks (from the host)
+### Internal checks (from inside the container/VM)
 
 ```sh
 # Check if memos is listening
@@ -130,7 +140,7 @@ curl -s -o /dev/null -w "%{http_code}" http://10.11.99.21:3080
 curl -s -o /dev/null -w "%{http_code}" -H 'Host: memos.example.com' http://10.11.99.21:3080
 ```
 
-### External checks (from a local machine)
+### External checks (from the internet, including the local dev computer)
 
 ```sh
 # Via TLS router CNAME
