@@ -24,7 +24,7 @@ Memos deployed as a systemd service behind a TLS router.
 
 ## Deploy Steps
 
-### 1. Create the container
+### 1. Create the container and set up DNS
 
 ```sh
 # List available environments
@@ -35,14 +35,8 @@ env-switch proxmox-sh <target-envname>
 
 # Create the LXC container
 proxmox-create --storage 10 --ram 1024 --vcpus 2 memos
-```
 
-This creates a new LXC container on the configured Proxmox node. Note the assigned IP (from the output) and the CNAME domain for later DNS setup.
-
-### 1.5. Set up DNS
-
-```sh
-# List available environments
+# List available DNS environments
 dns-cname
 
 # Set the CNAME
@@ -53,7 +47,7 @@ dns-cname memos.example.com tls-10-11-99-21.vms.example.net
 sleep 15
 ```
 
-This creates a CNAME record pointing `memos.example.com` to the TLS router's direct IP domain, then waits for propagation.
+This creates a new LXC container on the configured Proxmox node, sets the DNS CNAME record pointing `memos.example.com` to the TLS router's direct IP domain, and waits for propagation.
 
 ### 2. Provision the host
 
