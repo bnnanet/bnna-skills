@@ -24,7 +24,7 @@ Memos deployed as a systemd service behind a TLS router.
 
 ## Deploy Steps
 
-### 0. Create the container
+### 1. Create the container
 
 ```sh
 # List available environments
@@ -39,7 +39,23 @@ proxmox-create --storage 10 --ram 1024 --vcpus 2 memos
 
 This creates a new LXC container on the configured Proxmox node. Note the assigned IP (from the output) and the CNAME domain for later DNS setup.
 
-### 1. Provision the host
+### 1.5. Set up DNS
+
+```sh
+# List available environments
+dns-cname
+
+# Set the CNAME
+# memos.example.com → tls-10-11-99-21.vms.example.net
+dns-cname memos.example.com tls-10-11-99-21.vms.example.net
+
+# Wait for DNS propagation
+sleep 15
+```
+
+This creates a CNAME record pointing `memos.example.com` to the TLS router's direct IP domain, then waits for propagation.
+
+### 2. Provision the host
 
 ```sh
 ./scripts/provision.sh root@memos.example.com
@@ -47,7 +63,7 @@ This creates a new LXC container on the configured Proxmox node. Note the assign
 
 This runs dist-upgrade, installs basic tools, sets locale/timezone, installs ssh-utils, creates the `app` user, and disables password SSH login.
 
-### 2. Set up the app skeleton
+### 3. Set up the app skeleton
 
 ```sh
 ./scripts/setup-app.sh app@memos.example.com memos
@@ -55,7 +71,7 @@ This runs dist-upgrade, installs basic tools, sets locale/timezone, installs ssh
 
 This installs `serviceman` via webi, adds `~/bin` to PATH, and creates `~/bin`, `~/srv/memos`, and `~/.config/memos`.
 
-### 3. Download and deploy
+### 4. Download and deploy
 
 ```sh
 ./scripts/deploy.sh app@memos.example.com
@@ -69,7 +85,7 @@ For a specific version:
 ./scripts/deploy.sh app@memos.example.com 0.29.1
 ```
 
-### 4. Disable user registration
+### 5. Disable user registration
 
 Memos allows public registration by default. For a private instance, disable it:
 
@@ -77,7 +93,7 @@ Memos allows public registration by default. For a private instance, disable it:
 # Via web UI: https://memos.example.com/setting#system → "Disallow user registration"
 ```
 
-### 5. Verify
+### 6. Verify
 
 ```sh
 # Via TLS router CNAME

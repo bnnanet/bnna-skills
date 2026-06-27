@@ -4,15 +4,13 @@
 
 - [ ] `env-switch proxmox-sh` (list envs), then `env-switch proxmox-sh <target-envname>`
 - [ ] LXC container created (`proxmox-create --storage 10 --ram 1024 --vcpus 2 memos`)
-- [ ] DNS CNAME set (`memos.example.com` → `tls-10-11-99-21.vms.example.net`)
+- [ ] `dns-cname` (list envs), then `dns-cname memos.example.com tls-10-11-99-21.vms.example.net`
 - [ ] Host provisioned (packages, user, ssh hardening)
+- [ ] App skeleton set up (serviceman, PATH, directories)
 
 ## Deploy
 
-- [ ] Binary downloaded and extracted
-- [ ] Binary installed to `~/bin/memos`
-- [ ] `~/bin` added to `~/.config/envman/PATH.env`
-- [ ] `serviceman` installed on host
+- [ ] Binary downloaded and installed to `~/bin/memos`
 - [ ] Service registered with `--workdir ~/srv/memos`
 - [ ] Service running (`systemctl status memos`)
 
