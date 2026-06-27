@@ -34,7 +34,10 @@ fn_main() {
    # Atomic rename + scp
    ssh "${g_host}" 'mv ~/bin/memos ~/bin/memos.old 2>/dev/null; true'
    scp ./memos "${g_host}:~/bin/memos"
-   ssh "${g_host}" 'chmod +x ~/bin/memos && ~/bin/memos --version'
+   ssh "${g_host}" 'chmod +x ~/bin/memos && ~/bin/memos version'
+
+   # Create data directory (Memos needs this before first run)
+   ssh "${g_host}" 'mkdir -p ~/srv/memos/data'
 
    # Register service
    ssh "${g_host}" '. ~/.config/envman/PATH.env && serviceman add --name memos --workdir ~/srv/memos -- ~/bin/memos --data ~/srv/memos/data --port 3080 --addr 0.0.0.0'
