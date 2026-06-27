@@ -24,6 +24,21 @@ Memos deployed as a systemd service behind a TLS router.
 
 ## Deploy Steps
 
+### 0. Create the container
+
+```sh
+# List available environments
+env-switch proxmox-sh
+
+# Select the target environment
+env-switch proxmox-sh <target-envname>
+
+# Create the LXC container
+proxmox-create --storage 10 --ram 1024 --vcpus 2 memos
+```
+
+This creates a new LXC container on the configured Proxmox node. Note the assigned IP (from the output) and the CNAME domain for later DNS setup.
+
 ### 1. Provision the host
 
 ```sh
