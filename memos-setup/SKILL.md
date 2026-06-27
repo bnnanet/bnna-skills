@@ -1,0 +1,155 @@
+---
+name: memos-setup
+description: Deploy Memos (open source note-taking service) to a remote Ubuntu host behind a TLS router. Downloads the release binary, installs via scp, registers systemd service via serviceman.
+depends: []
+---
+
+## Overview
+
+Memos deployed as a systemd service behind a TLS router.
+
+| File | Purpose |
+|------|---------|
+| [scripts/provision.sh](scripts/provision.sh) | Fresh Ubuntu host setup (dist-upgrade, packages, locale, timezone, ssh hardening, app user) |
+| [scripts/setup-app.sh](scripts/setup-app.sh) | Generic app scaffolding (serviceman install, PATH, directories) |
+| [scripts/deploy.sh](scripts/deploy.sh) | Download, install, serviceman register for Memos |
+| [scripts/download.sh](scripts/download.sh) | Standalone binary download utility |
+| [references/deploy-checklist.md](references/deploy-checklist.md) | Pre-flight, deploy, and post-deploy checklist |
+
+## Deploy Steps
+
+| Role | Path |
+|------|------|
+| Binary | `~/bin/memos` |
+| Data | `~/srv/memos/data/` (SQLite DB) |
+| Workdir | `~/srv/memos/` |
+
+### Key Flags
+
+| Flag | Purpose |
+|------|---------|
+| `--data` | Data directory (SQLite DB path) |
+| `--port` | Port (`3080` for TLS router) |
+| `--addr` | Bind address (`0.0.0.0`) |
+
+## Deploy Steps
+
+### 1. Create the container and set up DNS
+
+```sh
+# List available environments
+env-switch proxmox-sh
+
+# Select the target environment
+env-switch proxmox-sh <target-envname>
+
+# Create the LXC container
+proxmox-create --storage 10 --ram 1024 --vcpus 2 memos
+
+# List available DNS environments
+dns-cname
+
+# Set the CNAME
+# memos.example.com → tls-10-11-99-21.vms.example.net
+dns-cname memos.example.com tls-10-11-99-21.vms.example.net
+
+# Wait for DNS propagation
+sleep 30
+```
+
+This creates a new LXC container on the configured Proxmox node, sets the DNS CNAME record pointing `memos.example.com` to the TLS router's direct IP domain, and waits for propagation.
+
+**Note:** The container may be created in `stopped` state while still booting. Wait a few seconds before proceeding to provision.
+
+**Note:** DNS CNAME propagation can take a few minutes. The service is accessible via the direct IP (`tls-10-11-99-21.vms.example.net`) immediately, even before the CNAME propagates. If the CNAME isn't resolving yet, use the direct IP to SSH or access the service.
+
+### 2. Provision the host
+
+```sh
+./scripts/provision.sh root@memos.example.com
+```
+
+This runs dist-upgrade, installs basic tools, sets locale/timezone, installs ssh-utils, creates the `app` user, and disables password SSH login.
+
+### 3. Set up the app skeleton
+
+```sh
+./scripts/setup-app.sh app@memos.example.com memos
+```
+
+This installs `serviceman` via webi, adds `~/bin` to PATH, and creates `~/bin`, `~/srv/memos`, and `~/.config/memos`.
+
+### 4. Download and deploy
+
+```sh
+./scripts/deploy.sh app@memos.example.com
+```
+
+This downloads the latest Memos binary (or a specified version), installs it to `~/bin/memos`, registers the systemd service on port 3080, and verifies it's running.
+
+For a specific version:
+
+```sh
+./scripts/deploy.sh app@memos.example.com 0.29.1
+```
+
+### 5. Disable user registration
+
+Memos allows public registration by default. For a private instance, disable it:
+
+```sh
+# Via web UI: https://memos.example.com/setting#system → "Disallow user registration"
+```
+
+### 6. Verify
+
+```sh
+# Via TLS router CNAME
+curl -s -o /dev/null -w "%{http_code}" https://tls-10-11-99-21.vms.example.net
+curl -s -o /dev/null -w "%{http_code}" https://memos.example.com
+```
+
+## Manage
+
+```sh
+# Restart
+ssh app@memos.example.com '. ~/.config/envman/PATH.env && serviceman restart memos'
+
+# Stop
+ssh app@memos.example.com '. ~/.config/envman/PATH.env && serviceman stop memos'
+
+# Start
+ssh app@memos.example.com '. ~/.config/envman/PATH.env && serviceman start memos'
+```
+
+## Troubleshooting
+
+- **Service won't start**: Check `systemctl status memos` and `journalctl -u memos -n 30`.
+- **Port already in use**: Kill stale processes (`ps aux | grep memos`).
+- **Binary not found**: Ensure `~/bin` is on PATH via `~/.config/envman/PATH.env`.
+- **TLS router returns 502**: Memos isn't listening on port 3080. Verify `--port 3080 --addr 0.0.0.0` flags.
+- **Public registration enabled**: Memos allows public registration by default. Disable via Settings → System.
+
+## Troubleshooting Checklist
+
+Verify locally first, then externally:
+
+### Internal checks (from inside the container/VM)
+
+```sh
+# Check if memos is listening
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3080
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3080
+curl -s -o /dev/null -w "%{http_code}" http://10.11.99.21:3080
+curl -s -o /dev/null -w "%{http_code}" -H 'Host: memos.example.com' http://10.11.99.21:3080
+```
+
+### External checks (from the internet, including the local dev computer)
+
+```sh
+# Via TLS router CNAME
+curl -s -o /dev/null -w "%{http_code}" https://tls-10-11-99-21.vms.example.net
+curl -s -o /dev/null -w "%{http_code}" https://memos.example.com
+```
+
+If internal checks pass but external fails, the issue is DNS or TLS router routing.
