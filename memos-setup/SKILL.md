@@ -59,7 +59,7 @@ For a specific version:
 Memos allows public registration by default. For a private instance, disable it:
 
 ```sh
-# Via web UI: Settings → System → "Disallow user registration"
+# Via web UI: https://memos.example.com/setting#system → "Disallow user registration"
 ```
 
 ### 5. Verify
