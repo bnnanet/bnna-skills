@@ -4,6 +4,10 @@ description: Deploy Vaultwarden (unofficial Bitwarden server) to a remote Alpine
 depends: []
 ---
 
+## ⚠️ Important: Go Step by Step
+
+**Always proceed one step at a time. Do not jump ahead or "problem solve" multiple steps without checking in with the human first.** After each step, stop and wait for the user to confirm before proceeding to the next step.
+
 ## Overview
 
 Vaultwarden deployed as a systemd service behind a TLS router.
@@ -32,7 +36,18 @@ Vaultwarden writes `~/srv/vaultwarden/data/config.json` on first run. After that
 
 ## Deploy Steps
 
-### 1. Extract binary + web-vault from Docker image
+### 1. Set up the app skeleton
+
+```sh
+my_host=warden.example.com
+my_user=app
+
+./scripts/setup-app.sh $my_user@$my_host vaultwarden
+```
+
+This installs `serviceman` via webi, adds `~/bin` to PATH, and creates `~/bin`, `~/srv/vaultwarden`, and `~/.config/vaultwarden`.
+
+### 2. Extract binary + web-vault from Docker image
 
 ```sh
 mkdir -p ./vw-image
@@ -47,28 +62,28 @@ Output: `./output/vaultwarden` (static ELF x86-64 binary) and `./output/web-vaul
 ### 2. Create directories
 
 ```sh
-HOST=warden.example.com
-USER=app
+my_host=warden.example.com
+my_user=app
 
-ssh $USER@$HOST 'mkdir -p ~/bin ~/srv/vaultwarden/data ~/.config/vaultwarden'
+ssh $my_user@$my_host 'mkdir -p ~/bin ~/srv/vaultwarden/data ~/.config/vaultwarden'
 ```
 
 ### 3. Install binary on remote host
 
 ```sh
-HOST=warden.example.com
-USER=app
+my_host=warden.example.com
+my_user=app
 
 # Atomic rename + scp
-ssh $USER@$HOST 'mv ~/bin/vaultwarden ~/bin/vaultwarden.old 2>/dev/null; true'
-scp ./output/vaultwarden $USER@$HOST:~/bin/vaultwarden
-ssh $USER@$HOST 'chmod +x ~/bin/vaultwarden && ~/bin/vaultwarden --version'
+ssh $my_user@$my_host 'mv ~/bin/vaultwarden ~/bin/vaultwarden.old 2>/dev/null; true'
+scp ./output/vaultwarden $my_user@$my_host:~/bin/vaultwarden
+ssh $my_user@$my_host 'chmod +x ~/bin/vaultwarden && ~/bin/vaultwarden --version'
 ```
 
 ### 4. Install web-vault
 
 ```sh
-scp -r ./output/web-vault $USER@$HOST:~/srv/vaultwarden/web-vault
+scp -r ./output/web-vault $my_user@$my_host:~/srv/vaultwarden/web-vault
 ```
 
 ### 5. Create dotenv file
@@ -76,7 +91,7 @@ scp -r ./output/web-vault $USER@$HOST:~/srv/vaultwarden/web-vault
 Vaultwarden needs env vars (`WEB_VAULT_FOLDER`, `DATA_FOLDER`, etc.) that aren't stored in `config.json`. Use `dotenv` to load them.
 
 ```sh
-ssh $USER@$HOST 'cat > ~/.config/vaultwarden/vaultwarden.env << ENVEOF
+ssh $my_user@$my_host 'cat > ~/.config/vaultwarden/vaultwarden.env << ENVEOF
 DATABASE_URL=/home/app/srv/vaultwarden/data/db.sqlite3
 ROCKET_ADDRESS=0.0.0.0
 ROCKET_PORT=3080
@@ -89,19 +104,19 @@ ENVEOF'
 Install dotenv on the remote host if not present:
 
 ```sh
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && webi dotenv'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && webi dotenv'
 ```
 
 ### 6. Register service with serviceman
 
 ```sh
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && serviceman add --name vaultwarden -- dotenv -f ~/.config/vaultwarden/vaultwarden.env ~/bin/vaultwarden'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && serviceman add --name vaultwarden -- dotenv -f ~/.config/vaultwarden/vaultwarden.env ~/bin/vaultwarden'
 ```
 
 Verify:
 
 ```sh
-ssh $USER@$HOST 'systemctl status vaultwarden --no-pager'
+ssh $my_user@$my_host 'systemctl status vaultwarden --no-pager'
 ```
 
 ### 7. Disable signups
@@ -109,27 +124,19 @@ ssh $USER@$HOST 'systemctl status vaultwarden --no-pager'
 Vaultwarden writes `config.json` on first run. For a private instance, disable public signups:
 
 ```sh
-ssh $USER@$HOST 'python3 -c "
-import json
-with open(\"/home/app/srv/vaultwarden/data/config.json\") as f:
-    cfg = json.load(f)
-cfg[\"signups_allowed\"] = False
-with open(\"/home/app/srv/vaultwarden/data/config.json\", \"w\") as f:
-    json.dump(cfg, f, indent=2)
-print(\"signups_allowed set to false\")
-"'
+ssh $my_user@$my_host "sed -i 's/\"signups_allowed\": true/\"signups_allowed\": false/' ~/srv/vaultwarden/data/config.json"
 ```
 
 Restart the service for the change to take effect:
 
 ```sh
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && serviceman restart vaultwarden'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && serviceman restart vaultwarden'
 ```
 
 ### 8. Verify
 
 ```sh
-curl -s -o /dev/null -w "%{http_code}" http://warden.example.com/
+curl -s -o /dev/null -w "%{http_code}" http://$my_host/
 # Should return 301 (TLS router redirect) or 200
 ```
 
@@ -137,13 +144,13 @@ curl -s -o /dev/null -w "%{http_code}" http://warden.example.com/
 
 ```sh
 # Restart
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && serviceman restart vaultwarden'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && serviceman restart vaultwarden'
 
 # Stop
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && serviceman stop vaultwarden'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && serviceman stop vaultwarden'
 
 # Start
-ssh $USER@$HOST '. ~/.config/envman/PATH.env && serviceman start vaultwarden'
+ssh $my_user@$my_host '. ~/.config/envman/PATH.env && serviceman start vaultwarden'
 ```
 
 ## Admin API
@@ -162,9 +169,9 @@ Two-step flow:
 ### 1. Login (get session cookie)
 
 ```sh
-VAULTWARDEN_ADMIN_TOKEN=$(cat ~/.config/vaultwarden/vaultwarden.env | grep ADMIN_TOKEN | cut -d= -f2)
-curl -c /tmp/vw-cookies.txt -X POST https://warden.example.com/admin \
-  -d "token=$VAULTWARDEN_ADMIN_TOKEN&redirect=/admin/users"
+my_vaultwarden_admin_token=$(cat ~/.config/vaultwarden/vaultwarden.env | grep ADMIN_TOKEN | cut -d= -f2)
+curl -c /tmp/vw-cookies.txt -X POST https://$my_host/admin \
+  -d "token=$my_vaultwarden_admin_token&redirect=/admin/users"
 ```
 
 ### 2. Create user
@@ -172,7 +179,7 @@ curl -c /tmp/vw-cookies.txt -X POST https://warden.example.com/admin \
 The admin invite endpoint creates the user record + DB invitation but does **not** set a password. The user completes registration via the web vault.
 
 ```sh
-curl -b /tmp/vw-cookies.txt -X POST https://warden.example.com/admin/invite \
+curl -b /tmp/vw-cookies.txt -X POST https://$my_host/admin/invite \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com"}'
 ```
@@ -186,7 +193,7 @@ The source checks for a pending invitation **before** checking `signups_allowed`
 ### List users
 
 ```sh
-curl -b /tmp/vw-cookies.txt https://warden.example.com/admin/users
+curl -b /tmp/vw-cookies.txt https://$my_host/admin/users
 ```
 
 ## Troubleshooting
